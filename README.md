@@ -16,10 +16,8 @@
  - Edit the _settings.json_ file to suit your needs.
  - Add all the missing detectors to the _detectors.json_ file.
 
-## The bad stuff
- - far from optimized as too many contours are drawn outside the visible are (read: it's slow).
-
 ## Latest updates:
+  - 2023-04-25 Bugfix: Segmented contours are now drawn properly.
   - 2023-04-20 Bugfix: Confined slider window mobility to main window area.
   - 2023-04-10 Bugfix: Main window aspect ratio on Windows (menu bar within window).
   - 2023-04-10 Bugfix: Label size could not be adjusted.
