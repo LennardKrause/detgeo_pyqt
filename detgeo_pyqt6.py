@@ -6,18 +6,6 @@ from contourpy import contour_generator
 from pyFAI import calibrant
 from gemmi import read_small_structure
 
-###########################################################
-# - stylesheet qframe (?)
-# - segmented contour lines are not
-#   displayed properly, only one segment is drawn (we pick
-#   the last). This happens when the grid is not large
-#   enough to host the full contour. To compensate, the
-#   grid gets a multiplier to reduce segmentation,
-#   multiplier = 1.5
-# - check causality
-# - find copy paste bugs from matplotlib version
-###########################################################
-
 class MainWindow(pg.QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -142,8 +130,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.resize(int(self.plo.plot_size*self.plo.xdim/self.plo.ydim), self.plo.plot_size + self.offset_win32)
 
         # scale contour grid to detector size
-        multiplier = 1.5
-        self.plo.cont_grid_max = int(np.ceil(max(self.plo.xdim*multiplier, self.plo.ydim*multiplier)))
+        self.plo.cont_grid_max = int(np.ceil(max(self.plo.xdim, self.plo.ydim)))
         
         # generate contour levels
         self.plo.cont_levels = np.linspace(self.plo.cont_tth_min, self.plo.cont_tth_max, self.plo.cont_tth_num)
@@ -155,9 +142,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.add_unit_label()
 
         # create cones and draw contour lines
-        self.draw_contours()
-        self.get_reference()
-        self.draw_reference()
+        self.update_screen()
 
     def init_menus(self):
         menuBar = QtWidgets.QMenuBar()
@@ -234,6 +219,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
 
     def set_menu_action(self, action, target, *args):
         action.triggered.connect(lambda: target(*args))
+
+    def set_window_title(self):
+        if self.geo.reference == 'None':
+            self.setWindowTitle(self.det.name)
+        else:
+            self.setWindowTitle(f'{self.det.name} - {self.geo.reference}')
 
     def change_detector(self, det_name, det_size):
         self.det = self.get_specs_det(self.detectors, det_name, det_size)
@@ -363,23 +354,23 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # Limits #
         ##########
         lmt = container()
-        lmt.ener_min = 1.0   # [float] Energy minimum [keV]
+        lmt.ener_min = 5.0   # [float] Energy minimum [keV]
         lmt.ener_max = 100.0 # [float] Energy maximum [keV]
         lmt.ener_stp = 1.0   # [float] Energy step size [keV]
         lmt.dist_min = 40.0  # [float] Distance minimum [mm]
-        lmt.dist_max = 150.0 # [float] Distance maximum [mm]
+        lmt.dist_max = 750.0 # [float] Distance maximum [mm]
         lmt.dist_stp = 1.0   # [float] Distance step size [mm]
-        lmt.xoff_min = -50.0 # [float] Horizontal offset minimum [mm]
-        lmt.xoff_max = 50.0  # [float] Horizontal offset maximum [mm]
+        lmt.xoff_min = -150.0 # [float] Horizontal offset minimum [mm]
+        lmt.xoff_max = 150.0  # [float] Horizontal offset maximum [mm]
         lmt.xoff_stp = 1.0   # [float] Horizontal offset step size [mm]
         lmt.yoff_min = 0.0   # [float] Vertical offset minimum [mm]
-        lmt.yoff_max = 200.0 # [float] Vertical offset maximum [mm]
+        lmt.yoff_max = 250.0 # [float] Vertical offset maximum [mm]
         lmt.yoff_stp = 1.0   # [float] Vertical offset step size [mm]
         lmt.rota_min = 0.0   # [float] Rotation minimum [deg]
         lmt.rota_max = 75.0  # [float] Rotation maximum [deg]
         lmt.rota_stp = 1.0   # [float] Rotation step size [deg]
         lmt.tilt_min = 0.0   # [float] Tilt minimum [deg]
-        lmt.tilt_max = 45.0  # [float] Tilt maximum [deg]
+        lmt.tilt_max = 25.0  # [float] Tilt maximum [deg]
         lmt.tilt_stp = 1.0   # [float] Tilt step size [deg]
         
         return lmt
@@ -517,6 +508,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                                      symbol = self.plo.cont_geom_cmark,
                                      size = self.plo.cont_geom_csize,
                                      brush = pg.mkBrush(self.plo.cont_cmap.map(0, mode='qcolor')))
+        # total rotation angle (tilt + rotation)
+        _total_angle = np.deg2rad(self.geo.tilt) + np.deg2rad(self.geo.rota)
+        # rotation matrix
+        _rotmat = [[np.cos(_total_angle), 0, np.sin(_total_angle)],[0,1,0],[-np.sin(_total_angle), 0, np.cos(_total_angle)]]
+        # compensation to revert the rotated distance for the tilt
+        _comp = np.deg2rad(self.geo.tilt) * self.geo.dist
         for _n, _ttd in enumerate(self.plo.cont_levels):
             # current fraction for colormap
             _f = _n/len(self.plo.cont_levels)
@@ -551,31 +548,34 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # draw additional contours for normal incidence geometry
             X0, Y0 = np.meshgrid(_x1,_x2)
             Z0 = np.sqrt(X0**2+Y0**2)*_rat
-            X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
+            X,Y,Z = self.calc_cone(X0, Y0, Z0, _rotmat, _comp, self.geo.xoff, self.geo.yoff)
+            #X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
             # don't draw contour lines that are out of bounds
             # make sure Z is large enough to draw the contour
             if np.max(Z) >= self.geo.dist:
-                clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)[-1]
-                self.plo.contours['exp'][_n].setData(clines, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw))
+                clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
+                stacked = np.vstack(clines)
+                connect = np.ones(len(stacked), dtype=np.ubyte)
+                rem = np.cumsum([len(i) for i in clines])-1
+                connect[rem] = 0
+                self.plo.contours['exp'][_n].setData(stacked, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw), connect=connect)
                 self.plo.contours['exp'][_n].setVisible(True)
                 # label contour lines
                 self.plo.contours['labels'][_n].setText(f'{_units[self.geo.unit]:.2f}', color=self.plo.cont_cmap.map(_f, mode='qcolor'))
                 # find y position for label
                 # beyond 90 degree 2-theta the contour is bend 'the other way'
                 # and we need the minimum contour value to position the label
-                label_posy = np.max(clines[:,1]) if _ttd <= 90 else np.min(clines[:,1])
+                label_posy = np.max(stacked[:,1]) if _ttd <= 90 else np.min(stacked[:,1])
+                if label_posy < self.plo.ydim:
+                    self.plo.contours['labels'][_n].setVisible(True)
+                else:
+                    self.plo.contours['labels'][_n].setVisible(False)
                 self.plo.contours['labels'][_n].setPos(self.geo.xoff, label_posy)
-                self.plo.contours['labels'][_n].setVisible(True)
             else:
                 self.plo.contours['labels'][_n].setVisible(False)
                 self.plo.contours['exp'][_n].setVisible(False)
-    
+
     def draw_reference(self):
-        # name the window
-        if self.geo.reference == 'None':
-            self.setWindowTitle(self.det.name)
-        else:
-            self.setWindowTitle(f'{self.det.name} - {self.geo.reference}')
         # calculate the offset of the contours resulting from yoff and rotation
         # shift the grid to draw the cones, to make sure the contours are drawn
         # within the visible area
@@ -583,8 +583,14 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # increase the the cone grid to allow more
         # contours to be drawn as the plane is tilted
         _comp_add = np.tan(np.deg2rad(self.geo.tilt))*self.geo.dist
+        # total rotation angle (tilt + rotation)
+        _total_angle = np.deg2rad(self.geo.tilt) + np.deg2rad(self.geo.rota)
+        # rotation matrix
+        _rotmat = [[np.cos(_total_angle), 0, np.sin(_total_angle)],[0,1,0],[-np.sin(_total_angle), 0, np.cos(_total_angle)]]
+        # compensation to revert the rotated distance for the tilt
+        _comp = np.deg2rad(self.geo.tilt) * self.geo.dist
         # plot reference contour lines
-        # satndard contour lines are to be drawn
+        # standard contour lines are to be drawn
         for _n,_d in enumerate(self.plo.cont_ref_dsp):
             # lambda = 2 * d * sin(theta)
             # 2-theta = 2 * (lambda / 2*d)
@@ -610,49 +616,52 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # use the offset adjusted value x1 to prepare the grid
             X0, Y0 = np.meshgrid(_x1,_x2)
             Z0 = np.sqrt(X0**2+Y0**2)*_rat
-            X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
+            X,Y,Z = self.calc_cone(X0, Y0, Z0, _rotmat, _comp, self.geo.xoff, self.geo.yoff)
+            #X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
             # make sure Z is large enough to draw the contour
             if np.max(Z) >= self.geo.dist:
-                clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)[-1]
-                self.plo.contours['ref'][_n].setData(clines, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
+                clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
+                stacked = np.vstack(clines)
+                connect = np.ones(len(stacked), dtype=np.ubyte)
+                rem = np.cumsum([len(i) for i in clines])-1
+                connect[rem] = 0
+                self.plo.contours['ref'][_n].setData(stacked, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw), connect=connect)
                 self.plo.contours['ref'][_n].setAlpha(self.plo.cont_ref_alpha, False)
+                self.plo.contours['ref'][_n].setVisible(True)
             else:
-                self.plo.contours['ref'][_n].setData([])
-                self.plo.contours['ref'][_n].clear()
+                #self.plo.contours['ref'][_n].setData([])
+                #self.plo.contours['ref'][_n].clear()
+                self.plo.contours['ref'][_n].setVisible(False)
 
-    def calc_cone(self, X, Y, Z, rota, tilt, xoff, yoff, dist):
-        # combined rotation, tilt 'movement' is compensated
-        a = np.deg2rad(tilt) + np.deg2rad(rota)
+    def calc_cone(self, X, Y, Z, rotmat, comp, xoff, yoff):
         # rotate the sample around y
         t = np.transpose(np.array([X,Y,Z]), (1,2,0))
-        # rotation matrix
-        m = [[np.cos(a), 0, np.sin(a)],[0,1,0],[-np.sin(a), 0, np.cos(a)]]
         # apply rotation
-        X,Y,Z = np.transpose(np.dot(t, m), (2,0,1))
-        # compensate for tilt not rotating
-        # - revert the travel distance
-        comp = np.deg2rad(tilt) * dist
-        return Y+xoff,X+comp-yoff,Z
-
-    def update_screen(self, val):
-        if self.sender().objectName() == 'dist':
-            self.geo.dist = float(val)
-        elif self.sender().objectName() == 'rota':
-            self.geo.rota = float(val)
-        elif self.sender().objectName() == 'tilt':
-            self.geo.tilt = float(val)
-        elif self.sender().objectName() == 'yoff':
-            self.geo.yoff = float(val)
-        elif self.sender().objectName() == 'xoff':
-            self.geo.xoff = float(val)
-        elif self.sender().objectName() == 'ener':
-            self.geo.ener = float(val)
+        X,Y,Z = np.transpose(np.dot(t, rotmat), (2,0,1))
+        return Y+xoff, X+comp-yoff, Z
+    
+    def update_screen(self, val=None):
+        if val is not None:
+            if self.sender().objectName() == 'dist':
+                self.geo.dist = float(val)
+            elif self.sender().objectName() == 'rota':
+                self.geo.rota = float(val)
+            elif self.sender().objectName() == 'tilt':
+                self.geo.tilt = float(val)
+            elif self.sender().objectName() == 'yoff':
+                self.geo.yoff = float(val)
+            elif self.sender().objectName() == 'xoff':
+                self.geo.xoff = float(val)
+            elif self.sender().objectName() == 'ener':
+                self.geo.ener = float(val)
         # re-calculate cones and re-draw contours
         self.draw_contours()
         # draw reference contours
         if self.geo.reference != 'None':
             self.get_reference()
             self.draw_reference()
+        # name the window
+        self.set_window_title()
 
     def dragEnterEvent(self, event):
         # Drag-and-Drop cif-file
