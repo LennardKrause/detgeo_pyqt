@@ -278,6 +278,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.sub_menu_custom.addAction(ref_action)
         self.group_ref.addAction(ref_action)
         ref_action.setChecked(True)
+        
+        # update window title
+        self.set_window_title()
 
         self.draw_reference()
 
@@ -692,8 +695,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         if self.geo.reference != 'None':
             self.get_reference()
             self.draw_reference()
-        # name the window
-        self.set_window_title()
 
     def dragEnterEvent(self, event):
         # Drag-and-Drop cif-file
