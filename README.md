@@ -17,6 +17,7 @@
  - Add all the missing detectors to the _detectors.json_ file.
 
 ## Latest updates:
+  - 2023-04-26 Update: A hkl tooltip is shown on click on a contour (only for cif contours).
   - 2023-04-25 Bugfix: Segmented contours are now drawn properly.
   - 2023-04-20 Bugfix: Confined slider window mobility to main window area.
   - 2023-04-10 Bugfix: Main window aspect ratio on Windows (menu bar within window).
