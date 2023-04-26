@@ -41,6 +41,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.geo.ref_library = calibrant.names()
         # dict to store custom reference data
         self.geo.ref_custom = {}
+        self.geo.ref_custom_hkl = {}
 
         # define grid layout
         self.layout = pg.QtWidgets.QGridLayout()
@@ -66,7 +67,13 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         if self.geo.unit >= len(self.geo.unit_names):
             print(f'Error: Valid geo.unit range is from 0 to {len(self.geo.unit_names)-1}, geo.unit={self.geo.unit}')
             raise SystemExit
-        
+
+        # init the hkl tooltip
+        font = QtGui.QFont()
+        font.setPixelSize(self.plo.cont_ref_hkl_size)
+        font.setBold(True)
+        QtWidgets.QToolTip.setFont(font)
+
         # initialize the detector screen
         self.init_screen()
         
@@ -106,7 +113,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         font = QtGui.QFont()
         font.setPixelSize(self.plo.cont_geom_label_size)
         font.setBold(True)
-        for _ in range(self.plo.cont_tth_num):
+        for i in range(self.plo.cont_tth_num):
             self.plo.contours['exp'].append(self.ax.plot(useCache=True, pxMode=True))
             temp_label = pg.TextItem(anchor=(0.5,0.5), fill=pg.mkBrush('w'))
             temp_label.setFont(font)
@@ -114,8 +121,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             self.ax.addItem(temp_label)
         
         # add empty plot per reference contour line
-        for _ in range(self.plo.cont_ref_num):
+        for i in range(self.plo.cont_ref_num):
             self.plo.contours['ref'].append(self.ax.plot(useCache=True, pxMode=True))
+            self.plo.contours['ref'][i].setAlpha(self.plo.cont_ref_alpha, False)
+            self.plo.contours['ref'][i].setCurveClickable(True, width=self.plo.cont_ref_lw)
+            self.plo.contours['ref'][i].sigClicked.connect(self.show_tooltip)
+            self.plo.contours['ref'][i].name = None
 
         # add beam center scatter plot
         self.plo.beam_center = pg.ScatterPlotItem()
@@ -255,9 +266,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         lattice_type = ref.find_spacegroup().centring_type()
         lattice = ref.find_spacegroup().crystal_system_str()
         
-        self.plo.cont_ref_dsp = list(map(float, calibrant.Cell(*cell, lattice=lattice, lattice_type=lattice_type).d_spacing(dmin=0.4).keys()))[::-1][:self.plo.cont_ref_num]
+        _temp = calibrant.Cell(*cell, lattice=lattice, lattice_type=lattice_type).d_spacing(dmin=0.4)
+        self.plo.cont_ref_dsp = list(map(float, _temp.keys()))[::-1][:self.plo.cont_ref_num]
+        self.plo.cont_ref_hkl = [i[-1] for i in list(_temp.values())[::-1][:self.plo.cont_ref_num]]
         self.geo.reference = os.path.basename(fpath)
         self.geo.ref_custom[self.geo.reference] = self.plo.cont_ref_dsp
+        self.geo.ref_custom_hkl[self.geo.reference] = self.plo.cont_ref_hkl
 
         ref_action = QtGui.QAction(self.geo.reference, self, checkable=True)
         self.set_menu_action(ref_action, self.change_reference, self.geo.reference)
@@ -271,12 +285,17 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         if self.geo.reference in self.geo.ref_library:
             # get the d spacings for the calibrtant from pyFAI
             self.plo.cont_ref_dsp = np.array(calibrant.get_calibrant(self.geo.reference).get_dSpacing()[:self.plo.cont_ref_num])
+            self.plo.cont_ref_hkl = None
         elif self.geo.reference in self.geo.ref_custom:
             # get custom d spacings
             self.plo.cont_ref_dsp = self.geo.ref_custom[self.geo.reference]
+            self.plo.cont_ref_hkl = self.geo.ref_custom_hkl[self.geo.reference]
         else:
             # set all d-spacings to -1
             self.plo.cont_ref_dsp = np.zeros(self.plo.cont_ref_num) -1
+            self.plo.cont_ref_hkl = None
+        # update window title
+        self.set_window_title()
 
     def get_specs_geo(self):
         ######################
@@ -319,6 +338,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_ref_color = 'gray'         # [color]  Reference contour color
         plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
         plo.cont_ref_num = 48               # [int]    Number of reference contours
+        plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltipß
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
         plo.module_color = 'gray'           # [color]  Detector module color
@@ -627,8 +647,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 rem = np.cumsum([len(i) for i in clines])-1
                 connect[rem] = 0
                 self.plo.contours['ref'][_n].setData(stacked, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw), connect=connect)
-                self.plo.contours['ref'][_n].setAlpha(self.plo.cont_ref_alpha, False)
                 self.plo.contours['ref'][_n].setVisible(True)
+                # assign objectName to show hkl as tooltip
+                if self.plo.cont_ref_hkl:
+                    self.plo.contours['ref'][_n].name = self.plo.cont_ref_hkl[_n]
+                else:
+                    self.plo.contours['ref'][_n].name = None
             else:
                 #self.plo.contours['ref'][_n].setData([])
                 #self.plo.contours['ref'][_n].clear()
@@ -640,7 +664,14 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # apply rotation
         X,Y,Z = np.transpose(np.dot(t, rotmat), (2,0,1))
         return Y+xoff, X+comp-yoff, Z
-    
+
+    def show_tooltip(self, widget, event):
+        if not widget.name or not self.plo.cont_ref_hkl:
+            return False
+        pos = QtCore.QPoint(*map(int, event.screenPos()))# - QtCore.QPoint(10,20)
+        QtWidgets.QToolTip.showText(pos, str(widget.name))
+        event.ignore()
+
     def update_screen(self, val=None):
         if val is not None:
             if self.sender().objectName() == 'dist':
