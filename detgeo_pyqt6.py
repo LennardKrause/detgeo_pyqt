@@ -94,8 +94,11 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.ax.setMouseEnabled(x=False, y=False)
         # disable right click  context menu
         self.ax.setMenuEnabled(False)
-    
-        self.get_colormap()
+        # hide the autoscale button
+        self.ax.hideButtons()
+
+        # get colormap
+        self.plo.cont_cmap = pg.colormap.get(self.plo.cont_geom_cmap_name)
 
         # container for contour lines
         self.plo.contours = {'exp':[], 'ref':[], 'labels':[]}
@@ -264,17 +267,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
 
         self.draw_reference()
 
-    def get_colormap(self):
-        # figure out the color of the buttons and slider handles
-        # get colormap
-        self.plo.cont_cmap = pg.colormap.get(self.plo.cont_geom_cmap_name)
-        try:
-            # try to derive color from colormap
-            self.plo.plot_handle_color = self.plo.cont_cmap.map(self.plo.plot_color, mode='qcolor')
-        except TypeError:
-            # use color as defined by user
-            self.plo.plot_handle_color = self.plo.plot_color
-    
     def get_reference(self):
         if self.geo.reference in self.geo.ref_library:
             # get the d spacings for the calibrtant from pyFAI
@@ -554,6 +546,11 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # make sure Z is large enough to draw the contour
             if np.max(Z) >= self.geo.dist:
                 clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
+                # contour out of grid dimensions
+                if not clines:
+                    self.plo.contours['exp'][_n].setVisible(False)
+                    self.plo.contours['labels'][_n].setVisible(False)
+                    continue
                 stacked = np.vstack(clines)
                 connect = np.ones(len(stacked), dtype=np.ubyte)
                 rem = np.cumsum([len(i) for i in clines])-1
@@ -621,6 +618,10 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # make sure Z is large enough to draw the contour
             if np.max(Z) >= self.geo.dist:
                 clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
+                # contour out of grid dimensions
+                if not clines:
+                    self.plo.contours['ref'][_n].setVisible(False)
+                    continue
                 stacked = np.vstack(clines)
                 connect = np.ones(len(stacked), dtype=np.ubyte)
                 rem = np.cumsum([len(i) for i in clines])-1
