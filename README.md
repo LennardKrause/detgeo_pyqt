@@ -8,10 +8,9 @@
 ## Short how-to:
  - Choose a detector and a model from the _Detector_ menu.
  - Pick a reference from the _Reference_ menu to plot its contours ([pyFAI](https://pyfai.readthedocs.io/en/v2023.1/)).
+ - Drop a .cif file onto the window to draw its contours ([pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [gemmi](https://project-gemmi.github.io/python-api/gemmi.UnitCell.html])), click a contour to get a hkl tooltip.
  - Use the units from the _Units_ menu you are the most comfortable with.
- - Hover over the grey line at the top to show the sliders.
-  - Click it to make it stay open.
-  - Move it around but don't lose it!
+ - Hover over the grey line at the top to show the sliders. Click it to make it stay open.
  - Drag the sliders to change energy and geometry.
  - Edit the _settings.json_ file to suit your needs.
  - Add all the missing detectors to the _detectors.json_ file.
