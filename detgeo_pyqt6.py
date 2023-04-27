@@ -60,6 +60,11 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         
         # add the plot to the layout
         self.ax = pg.plot()
+        # added to avoid the error:
+        # qt.pointer.dispatch: skipping QEventPoint(id=0 ts=0 pos=0,0 scn=482.023,246.011
+        # gbl=482.023,246.011 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-482.023,-246.011
+        # last=-482.023,-246.011 Δ 482.023,246.011) : no target window
+        self.ax.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
         self.layout.addWidget(self.ax)
 
         # translate unit for plot title
@@ -147,7 +152,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.plo.cont_grid_max = int(np.ceil(max(self.plo.xdim, self.plo.ydim)))
         
         # generate contour levels
-        self.plo.cont_levels = np.linspace(self.plo.cont_tth_min, self.plo.cont_tth_max, self.plo.cont_tth_num)
+        self.plo.cont_geom_num = np.linspace(self.plo.cont_tth_min, self.plo.cont_tth_max, self.plo.cont_tth_num)
 
         # build detector modules
         self.build_detector()
@@ -266,9 +271,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         lattice_type = ref.find_spacegroup().centring_type()
         lattice = ref.find_spacegroup().crystal_system_str()
         
-        _temp = calibrant.Cell(*cell, lattice=lattice, lattice_type=lattice_type).d_spacing(dmin=0.4)
-        self.plo.cont_ref_dsp = list(map(float, _temp.keys()))[::-1][:self.plo.cont_ref_num]
-        self.plo.cont_ref_hkl = [i[-1] for i in list(_temp.values())[::-1][:self.plo.cont_ref_num]]
+        _temp = sorted(list(calibrant.Cell(*cell, lattice=lattice, lattice_type=lattice_type).d_spacing(dmin=self.plo.cont_ref_dmin).values()))[::-1][:self.plo.cont_ref_num]
+        self.plo.cont_ref_dsp = [i[0] for i in _temp]
+        self.plo.cont_ref_hkl = [i[-1] for i in _temp]
         self.geo.reference = os.path.basename(fpath)
         self.geo.ref_custom[self.geo.reference] = self.plo.cont_ref_dsp
         self.geo.ref_custom_hkl[self.geo.reference] = self.plo.cont_ref_hkl
@@ -341,6 +346,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_ref_color = 'gray'         # [color]  Reference contour color
         plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
         plo.cont_ref_num = 48               # [int]    Number of reference contours
+        plo.cont_ref_dmin = 0.4             # [float]  Minimum reference d-spacing
         plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltipß
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
@@ -529,9 +535,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         _rotmat = [[np.cos(_total_angle), 0, np.sin(_total_angle)],[0,1,0],[-np.sin(_total_angle), 0, np.cos(_total_angle)]]
         # compensation to revert the rotated distance for the tilt
         _comp = np.deg2rad(self.geo.tilt) * self.geo.dist
-        for _n, _ttd in enumerate(self.plo.cont_levels):
+        for _n, _ttd in enumerate(self.plo.cont_geom_num):
             # current fraction for colormap
-            _f = _n/len(self.plo.cont_levels)
+            _f = _n/len(self.plo.cont_geom_num)
             # convert theta in degrees to radians
             _ttr = np.deg2rad(_ttd)
             # calculate ratio of sample to detector distance (sdd)
@@ -542,7 +548,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # apply the min/max grid resolution
             _grd_res = max(min(int(self.plo.cont_reso_min*_rat), self.plo.cont_reso_max), self.plo.cont_reso_min)
             # prepare the grid for the cones/contours
-            # adjust the resolution using i (-> plo.cont_levels),
+            # adjust the resolution using i (-> plo.cont_geom_num),
             # as smaller cones/contours (large i) need higher sampling
             # but make sure the sampling rate doesn't fall below the
             # user set plo.cont_reso_min value and plo.cont_reso_max
@@ -611,54 +617,59 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         _comp = np.deg2rad(self.geo.tilt) * self.geo.dist
         # plot reference contour lines
         # standard contour lines are to be drawn
-        for _n,_d in enumerate(self.plo.cont_ref_dsp):
-            # lambda = 2 * d * sin(theta)
-            # 2-theta = 2 * (lambda / 2*d)
-            # lambda -> (12.398/geo_energy)
-            lambda_d = (12.398/self.geo.ener) / (2*_d)
-            if lambda_d > 1.0:
-                continue
-            _ttr = 2 * np.arcsin(lambda_d)
-            # calculate ratio of sample to detector distance (sdd)
-            # and contour distance to beam center (cbc)
-            # _rat = sdd/cbc = 1/tan(2-theta)
-            # this is used to scale the cones Z dimension
-            _rat = 1/np.tan(_ttr)
-            # apply the min/max grid resolution
-            _grd_res = max(min(int(self.plo.cont_reso_min*_rat), self.plo.cont_reso_max), self.plo.cont_reso_min)
-            # the grid position needs to adjusted upon change of geometry (y, vertical)
-            # the center needs to be shifted by _geo_offset to make sure all contour lines are drawn
-            _x1 = np.linspace(-self.plo.cont_grid_max + _comp_shift, self.plo.cont_grid_max - _comp_shift + _comp_add, _grd_res)
-            # the grid position needs to adjusted upon change of geometry (x, horizontal)
-            # the center needs to be shifted by geo.xoff to make sure all contour lines are drawn
-            _x2 = np.linspace(-self.plo.cont_grid_max - self.geo.xoff, self.plo.cont_grid_max - self.geo.xoff, _grd_res)
-            # draw contours for the tilted/rotated/moved geometry
-            # use the offset adjusted value x1 to prepare the grid
-            X0, Y0 = np.meshgrid(_x1,_x2)
-            Z0 = np.sqrt(X0**2+Y0**2)*_rat
-            X,Y,Z = self.calc_cone(X0, Y0, Z0, _rotmat, _comp, self.geo.xoff, self.geo.yoff)
-            #X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
-            # make sure Z is large enough to draw the contour
-            if np.max(Z) >= self.geo.dist:
-                clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
-                # contour out of grid dimensions
-                if not clines:
-                    self.plo.contours['ref'][_n].setVisible(False)
+        for _n in range(self.plo.cont_ref_num):
+            # number of d-spacings might be lower than the maximum number of allowed contours
+            if _n < len(self.plo.cont_ref_dsp):
+                _d = self.plo.cont_ref_dsp[_n]
+                # lambda = 2 * d * sin(theta)
+                # 2-theta = 2 * (lambda / 2*d)
+                # lambda -> (12.398/geo_energy)
+                lambda_d = (12.398/self.geo.ener) / (2*_d)
+                if lambda_d > 1.0:
                     continue
-                stacked = np.vstack(clines)
-                connect = np.ones(len(stacked), dtype=np.ubyte)
-                rem = np.cumsum([len(i) for i in clines])-1
-                connect[rem] = 0
-                self.plo.contours['ref'][_n].setData(stacked, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw), connect=connect)
-                self.plo.contours['ref'][_n].setVisible(True)
-                # assign objectName to show hkl as tooltip
-                if self.plo.cont_ref_hkl:
-                    self.plo.contours['ref'][_n].name = self.plo.cont_ref_hkl[_n]
+                _ttr = 2 * np.arcsin(lambda_d)
+                # calculate ratio of sample to detector distance (sdd)
+                # and contour distance to beam center (cbc)
+                # _rat = sdd/cbc = 1/tan(2-theta)
+                # this is used to scale the cones Z dimension
+                _rat = 1/np.tan(_ttr)
+                # apply the min/max grid resolution
+                _grd_res = max(min(int(self.plo.cont_reso_min*_rat), self.plo.cont_reso_max), self.plo.cont_reso_min)
+                # the grid position needs to adjusted upon change of geometry (y, vertical)
+                # the center needs to be shifted by _geo_offset to make sure all contour lines are drawn
+                _x1 = np.linspace(-self.plo.cont_grid_max + _comp_shift, self.plo.cont_grid_max - _comp_shift + _comp_add, _grd_res)
+                # the grid position needs to adjusted upon change of geometry (x, horizontal)
+                # the center needs to be shifted by geo.xoff to make sure all contour lines are drawn
+                _x2 = np.linspace(-self.plo.cont_grid_max - self.geo.xoff, self.plo.cont_grid_max - self.geo.xoff, _grd_res)
+                # draw contours for the tilted/rotated/moved geometry
+                # use the offset adjusted value x1 to prepare the grid
+                X0, Y0 = np.meshgrid(_x1,_x2)
+                Z0 = np.sqrt(X0**2+Y0**2)*_rat
+                X,Y,Z = self.calc_cone(X0, Y0, Z0, _rotmat, _comp, self.geo.xoff, self.geo.yoff)
+                #X,Y,Z = self.calc_cone(X0, Y0, Z0, self.geo.rota, self.geo.tilt, self.geo.xoff, self.geo.yoff, self.geo.dist)
+                # make sure Z is large enough to draw the contour
+                if np.max(Z) >= self.geo.dist:
+                    clines = contour_generator(x=X, y=Y, z=Z).lines(self.geo.dist)
+                    # contour out of grid dimensions
+                    if not clines:
+                        self.plo.contours['ref'][_n].setVisible(False)
+                        continue
+                    stacked = np.vstack(clines)
+                    connect = np.ones(len(stacked), dtype=np.ubyte)
+                    rem = np.cumsum([len(i) for i in clines])-1
+                    connect[rem] = 0
+                    self.plo.contours['ref'][_n].setData(stacked, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw), connect=connect)
+                    self.plo.contours['ref'][_n].setVisible(True)
+                    # assign objectName to show hkl as tooltip
+                    if self.plo.cont_ref_hkl:
+                        self.plo.contours['ref'][_n].name = self.plo.cont_ref_hkl[_n]
+                    else:
+                        self.plo.contours['ref'][_n].name = None
                 else:
-                    self.plo.contours['ref'][_n].name = None
+                    #self.plo.contours['ref'][_n].setData([])
+                    #self.plo.contours['ref'][_n].clear()
+                    self.plo.contours['ref'][_n].setVisible(False)
             else:
-                #self.plo.contours['ref'][_n].setData([])
-                #self.plo.contours['ref'][_n].clear()
                 self.plo.contours['ref'][_n].setVisible(False)
 
     def calc_cone(self, X, Y, Z, rotmat, comp, xoff, yoff):
