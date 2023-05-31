@@ -343,8 +343,8 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo = container()
         # - geometry contour section - 
         plo.cont_tth_min = 5                # [int]    Minimum 2-theta contour line
-        plo.cont_tth_max = 120              # [int]    Maximum 2-theta contour line
-        plo.cont_tth_num = 24               # [int]    Number of contour lines
+        plo.cont_tth_max = 150              # [int]    Maximum 2-theta contour line
+        plo.cont_tth_num = 30               # [int]    Number of contour lines
         plo.cont_geom_cmark = 'o'           # [marker] Beam center marker (geometry)
         plo.cont_geom_csize = 6             # [int]    Beam center size (geometry)
         plo.cont_geom_lw = 4.0              # [float]  Contour linewidth
@@ -354,21 +354,17 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_ref_alpha = 0.25           # [float]  Reference contour alpha
         plo.cont_ref_color = 'gray'         # [color]  Reference contour color
         plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
-        plo.cont_ref_num = 48               # [int]    Number of reference contours
-        plo.cont_ref_dmin = 0.4             # [float]  Minimum reference d-spacing
+        plo.cont_ref_num = 60               # [int]    Number of reference contours
         plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltipß
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
         plo.module_color = 'gray'           # [color]  Detector module color
         # - general section - 
-        plo.cont_reso_min = 48              # [int]    Minimum contour steps
-        plo.cont_reso_max = 256             # [int]    Maximum contour steps
+        plo.cont_steps = 500                # [int]    Contour steps
         plo.plot_size = 768                 # [int]    Plot size, px
         plo.unit_label_size = 16            # [int]    Label size, px
         plo.unit_label_color = 'gray'       # [str]    Label color
         plo.unit_label_fill = 'white'       # [str]    Label fill color
-        plo.plot_color = 0.35               # [float]  Button color from colormap (0.0 - 1.0)
-                                            # [str]    Button color e.g. '#1f77b4'
         # -slider section - 
         plo.action_ener = True              # [bool]   Show energy slider
         plo.action_dist = True              # [bool]   Show distance slider
@@ -384,24 +380,24 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # Limits #
         ##########
         lmt = container()
-        lmt.ener_min = 5.0   # [float] Energy minimum [keV]
-        lmt.ener_max = 100.0 # [float] Energy maximum [keV]
-        lmt.ener_stp = 1.0   # [float] Energy step size [keV]
-        lmt.dist_min = 40.0  # [float] Distance minimum [mm]
-        lmt.dist_max = 750.0 # [float] Distance maximum [mm]
-        lmt.dist_stp = 1.0   # [float] Distance step size [mm]
-        lmt.xoff_min = -150.0 # [float] Horizontal offset minimum [mm]
-        lmt.xoff_max = 150.0  # [float] Horizontal offset maximum [mm]
-        lmt.xoff_stp = 1.0   # [float] Horizontal offset step size [mm]
-        lmt.yoff_min = 0.0   # [float] Vertical offset minimum [mm]
-        lmt.yoff_max = 250.0 # [float] Vertical offset maximum [mm]
-        lmt.yoff_stp = 1.0   # [float] Vertical offset step size [mm]
-        lmt.rota_min = 0.0   # [float] Rotation minimum [deg]
-        lmt.rota_max = 75.0  # [float] Rotation maximum [deg]
-        lmt.rota_stp = 1.0   # [float] Rotation step size [deg]
-        lmt.tilt_min = 0.0   # [float] Tilt minimum [deg]
-        lmt.tilt_max = 25.0  # [float] Tilt maximum [deg]
-        lmt.tilt_stp = 1.0   # [float] Tilt step size [deg]
+        lmt.ener_min =  5.0    # [float] Energy minimum [keV]
+        lmt.ener_max =  100.0  # [float] Energy maximum [keV]
+        lmt.ener_stp =  1.0    # [float] Energy step size [keV]
+        lmt.dist_min =  40.0   # [float] Distance minimum [mm]
+        lmt.dist_max =  1000.0 # [float] Distance maximum [mm]
+        lmt.dist_stp =  1.0    # [float] Distance step size [mm]
+        lmt.xoff_min = -150.0  # [float] Horizontal offset minimum [mm]
+        lmt.xoff_max =  150.0  # [float] Horizontal offset maximum [mm]
+        lmt.xoff_stp =  1.0    # [float] Horizontal offset step size [mm]
+        lmt.yoff_min =  0.0    # [float] Vertical offset minimum [mm]
+        lmt.yoff_max =  250.0  # [float] Vertical offset maximum [mm]
+        lmt.yoff_stp =  1.0    # [float] Vertical offset step size [mm]
+        lmt.rota_min = -60.0   # [float] Rotation minimum [deg]
+        lmt.rota_max =  60.0   # [float] Rotation maximum [deg]
+        lmt.rota_stp =  1.0    # [float] Rotation step size [deg]
+        lmt.tilt_min = -30.0   # [float] Tilt minimum [deg]
+        lmt.tilt_max =  30.0   # [float] Tilt maximum [deg]
+        lmt.tilt_stp =  1.0    # [float] Tilt step size [deg]
         
         return lmt
 
@@ -539,12 +535,17 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         for _n, _ttd in enumerate(self.plo.cont_geom_num):
             # current fraction for colormap
             _f = _n/len(self.plo.cont_geom_num)
+
             # convert theta in degrees to radians
-            _ttr = np.deg2rad(_ttd)
-            _omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
+            theta = np.deg2rad(_ttd)
+
+            # convert theta in degrees to radians
+            # for some reason I defined it negative some time ago
+            # now there's no turning back!
+            omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
 
             # skip > +-90 deg contours
-            if _ttr < np.pi/2 + abs(_omega):
+            if theta < np.pi/2 + abs(omega):
                 self.plo.contours['conic'][_n].setVisible(True)
                 self.plo.contours['labels'][_n].setVisible(True)
             else:
@@ -552,17 +553,22 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 self.plo.contours['labels'][_n].setVisible(False)
                 continue
             
-            conic, label_pos = self.calc_conic(_omega, _ttr, return_label_pos=True, steps=500)
+            # calculate the conic section corresponding to the theta angle
+            conic, label_pos = self.calc_conic(omega, theta, return_label_pos=True, steps=self.plo.cont_steps)
+
+            # plot the conic section
             self.plo.contours['conic'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw))
 
             # Conversion factor keV to Angstrom: 12.398
             # sin(t)/l: np.sin(Theta) / lambda -> (12.398/geo_energy)
-            _stl = np.sin(_ttr/2)/(12.398/self.geo.ener)
+            stl = np.sin(theta/2)/(12.398/self.geo.ener)
+
             # d-spacing: l = 2 d sin(t) -> 1/2(sin(t)/l)
-            _dsp = 1/(2*_stl)
+            dsp = 1/(2*stl)
+
             # prepare the values in the different units / labels
-            #_units = {0:np.rad2deg(_ttr), 1:_dsp, 2:_stl*4*np.pi, 3:_stl}
-            _units = {0:_ttd, 1:_dsp, 2:_stl*4*np.pi, 3:_stl}
+            #_units = {0:np.rad2deg(theta), 1:_dsp, 2:_stl*4*np.pi, 3:_stl}
+            _units = {0:_ttd, 1:dsp, 2:stl*4*np.pi, 3:stl}
             self.plo.contours['labels'][_n].setPos(self.geo.xoff, label_pos)
             self.plo.contours['labels'][_n].setText(f'{_units[self.geo.unit]:.2f}', color=self.plo.cont_cmap.map(_f, mode='qcolor'))
 
@@ -580,25 +586,37 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 if lambda_d > 1.0:
                     continue
                 
-                _ttr = 2 * np.arcsin(lambda_d)
+                # get theta
+                theta = 2 * np.arcsin(lambda_d)
                 
                 # convert theta in degrees to radians
-                _omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
+                # for some reason I defined it negative some time ago
+                # now there's no turning back!
+                omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
                 
-                # skip > +-90 deg contours
-                if _ttr < np.pi/2 + abs(_omega):
+                # skip relative theta > +-90 deg contours
+                if theta < np.pi/2 + abs(omega):
                     self.plo.contours['ref'][_n].setVisible(True)
                 else:
                     self.plo.contours['ref'][_n].setVisible(False)
                     continue
                 
-                conic = self.calc_conic(_omega, _ttr, return_label_pos=False, steps=500)
+                # calculate the conic section corresponding to the theta angle
+                conic = self.calc_conic(omega, theta, return_label_pos=False, steps=self.plo.cont_steps)
+
+                # plot the conic section
                 self.plo.contours['ref'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
+                
+                # if hkl are available
+                # put them in the proper container for the contour
+                # so indexing gets it right
                 if self.plo.cont_ref_hkl:
                     self.plo.contours['ref'][_n].name = self.plo.cont_ref_hkl[_n]
                 else:
                     self.plo.contours['ref'][_n].name = None
             else:
+                # there are more available contours than we have from the cif/pyFAI
+                # hide the superfluous ones
                 self.plo.contours['ref'][_n].setVisible(False)
     
     def calc_conic(self, omega, theta, return_label_pos=True, steps=500):
