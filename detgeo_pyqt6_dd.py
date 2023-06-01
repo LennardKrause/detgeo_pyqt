@@ -309,7 +309,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             self.plo.cont_ref_hkl = self.geo.ref_custom_hkl[self.geo.reference]
         else:
             # set all d-spacings to -1
-            self.plo.cont_ref_dsp = np.zeros(self.plo.cont_ref_num) -1
+            self.plo.cont_ref_dsp = np.zeros(self.plo.cont_ref_num)
             self.plo.cont_ref_hkl = None
         # update window title
         self.set_window_title()
@@ -574,15 +574,19 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # plot reference contour lines
         # standard contour lines are to be drawn
         for _n in range(self.plo.cont_ref_num):
+            self.plo.contours['ref'][_n].setVisible(False)
             # number of d-spacings might be lower than the maximum number of allowed contours
             if _n < len(self.plo.cont_ref_dsp):
                 _d = self.plo.cont_ref_dsp[_n]
+                # None adds a list of zeros
+                # catch those here
+                if _d <= 0:
+                    continue
                 # lambda = 2 * d * sin(theta)
                 # 2-theta = 2 * (lambda / 2*d)
                 # lambda -> (12.398/geo_energy)
                 lambda_d = (12.398/self.geo.ener) / (2*_d)
                 if lambda_d > 1.0:
-                    self.plo.contours['ref'][_n].setVisible(False)
                     continue
                 
                 # get theta
@@ -597,7 +601,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 # :returns False is conic is outside of visiblee area
                 conic, _ = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
                 if conic is False:
-                    self.plo.contours['ref'][_n].setVisible(False)
                     continue
 
                 # plot the conic section
@@ -611,10 +614,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                     self.plo.contours['ref'][_n].name = self.plo.cont_ref_hkl[_n]
                 else:
                     self.plo.contours['ref'][_n].name = None
-            else:
-                # there are more available contours than we have from the cif/pyFAI
-                # hide the superfluous ones
-                self.plo.contours['ref'][_n].setVisible(False)
     
     def calc_conic(self, omega, theta, steps=500):
         # This functions documentation is in a terrible state!
