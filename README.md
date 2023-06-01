@@ -3,12 +3,12 @@
  - Main application is to visualize the maximum achievable resolution at a given geometry.
  - The math used is not meant to bring people to the moon but to provide a quick and simple preview.
  - The module building code is designed for [Dectris](https://www.dectris.com) [PILATUS3](https://www.dectris.com/detectors/x-ray-detectors/pilatus3/) / [EIGER2](https://www.dectris.com/detectors/x-ray-detectors/eiger2/) and [SACLA](https://sacla.xfel.jp/?lang=en) MPCCD Detectors (central hole geometry) but one-module systems like the [Bruker](https://www.bruker.com/en.html) [Photon II](https://www.bruker.com/en/products-and-solutions/diffractometers-and-scattering-systems/single-crystal-x-ray-diffractometers/sc-xrd-components/detectors.html) are possible as well.
- - It uses [python3](https://www.python.org), [numpy](https://numpy.org), [pyqt6](https://www.riverbankcomputing.com/software/pyqt/), [pyqtgraph](https://pyqtgraph.readthedocs.io/en/latest/), [contourpy](https://contourpy.readthedocs.io/en/v1.0.7/), [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [gemmi](https://project-gemmi.github.io/python-api/gemmi.UnitCell.html).
+ - It uses [python3](https://www.python.org), [numpy](https://numpy.org), [pyqt6](https://www.riverbankcomputing.com/software/pyqt/), [pyqtgraph](https://pyqtgraph.readthedocs.io/en/latest/), [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [Dans_Diffraction](https://github.com/DanPorter/Dans_Diffraction).
 
 ## Short how-to:
  - Choose a detector and a model from the _Detector_ menu.
  - Pick a reference from the _Reference_ menu to plot its contours ([pyFAI](https://pyfai.readthedocs.io/en/v2023.1/)).
- - Drop a .cif file onto the window to draw its contours ([pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [gemmi](https://project-gemmi.github.io/python-api/gemmi.UnitCell.html])), click a contour to get a hkl tooltip.
+ - Drop a .cif file onto the window to draw its contours ([pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [Dans_Diffraction](https://github.com/DanPorter/Dans_Diffraction)), click a contour to get a hkl tooltip.
  - Use the units from the _Units_ menu you are the most comfortable with.
  - Hover over the grey line at the top to show the sliders. Click it to make it stay open.
  - Drag the sliders to change energy and geometry.
@@ -16,13 +16,15 @@
  - Add all the missing detectors to the _detectors.json_ file.
 
 ## Latest updates:
+  - 2023-06-01 Update: countourpy was dropped, the conics are now calculated directly instead of being evaluated on a grid.
+  - 2023-05-25 Update: Dans_Diffraction is used in favour of gemmi as it allows the direct calculation of intensities from the cif.
   - 2023-04-26 Update: A hkl tooltip is shown on click on a contour (only for cif contours).
   - 2023-04-25 Bugfix: Segmented contours are now drawn properly.
   - 2023-04-20 Bugfix: Confined slider window mobility to main window area.
   - 2023-04-10 Bugfix: Main window aspect ratio on Windows (menu bar within window).
   - 2023-04-10 Bugfix: Label size could not be adjusted.
   - 2023-04-10 Bugfix: Large angle (2-Theta > 90) contour label positions.
-  - 2023-04-09 Update: Drop a cif file onto the window to draw its contours (uses [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [gemmi](https://project-gemmi.github.io/python-api/gemmi.UnitCell.html])).
+  - 2023-04-09 Update: Drop a cif file onto the window to draw its contours (uses [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [Dans_Diffraction](https://github.com/DanPorter/Dans_Diffraction)).
   - 2023-04-05 Update: Uses pyqt6, pyqtgraph and contourpy, dropped matplotlib backend.
 
 ## Older updates
