@@ -270,7 +270,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # reject low intensities: based on median or mean?
         # median is always around unity -> useless
         # mean rejects many, add adjustable multiplicator?
-        used = reflections[reflections[:,4] > np.mean(reflections[:,4])]
+        used = reflections[reflections[:,4] > self.plo.cont_ref_min_int]
         # sort by intensity -> ascending -> flip
         ordered = used[used[:, 4].argsort()][::-1]
         # pick the strongest
@@ -280,8 +280,10 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # hkl -> integer
         # cast hkl array to list of tuples (for easy display)
         hkl = ordered[:,:3].astype(int)
-        #self.plo.cont_ref_hkl = list(zip(hkl[:,0], hkl[:,1], hkl[:,2], ordered[:,4]))
-        self.plo.cont_ref_hkl = list(zip(hkl[:,0], hkl[:,1], hkl[:,2]))
+        if self.plo.cont_ref_hkl_int:
+            self.plo.cont_ref_hkl = list(zip(hkl[:,0], hkl[:,1], hkl[:,2], ordered[:,4].astype(int)))
+        else:
+            self.plo.cont_ref_hkl = list(zip(hkl[:,0], hkl[:,1], hkl[:,2]))
 
         self.geo.reference = os.path.basename(fpath)
         self.geo.ref_custom[self.geo.reference] = self.plo.cont_ref_dsp
@@ -355,7 +357,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_ref_color = 'gray'         # [color]  Reference contour color
         plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
         plo.cont_ref_num = 60               # [int]    Number of reference contours
-        plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltipß
+        plo.cont_ref_min_int = 10           # [int]    Minimum display intensity
+        plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltip
+        plo.cont_ref_hkl_int = True         # [bool]   Include intensity in hkl tooltip
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
         plo.module_color = 'gray'           # [color]  Detector module color
