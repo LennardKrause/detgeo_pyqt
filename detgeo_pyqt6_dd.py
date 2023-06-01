@@ -621,20 +621,26 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # not only to make sure I don't forget what I was thinking
         # but to make your life a little easier understanding it.
 
-
         # skip drawing smaller/larger +-90 deg contours
         # reject overlap of the 'backscattering'
         # -> limitation of the geometric model
         if theta > np.pi/2 + abs(omega):
             return False, False
 
+        # y axis offset of the cone center
         dy_cone = self.geo.dist * np.tan(omega)
+        # change in 'r', the length of the cones primary axis
         dz_cone = np.sqrt(self.geo.dist**2 + dy_cone**2)
+        # tilt is handled as a rotation but
+        # has its travel distance (y) reset.
         comp_tilt = np.deg2rad(self.geo.tilt) * self.geo.dist
-
+        # eccentricity of the resulting conic section
         ecc = np.round(np.cos(np.pi/2 - omega) / np.cos(theta), 10)
+        # we need e**2-1 to calculate the width of the hyperbola
         e21 = ecc**2-1
-
+        # y ('height') components/distances from central axis of the cone
+        # intersecting the detector plane and the distance to
+        # the y intersection of the conic section.
         y1 = dz_cone * np.sin(theta) / np.cos(omega + theta)
         y2 = dz_cone * np.sin(theta) / np.cos(omega - theta)
 
@@ -642,7 +648,8 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # revert tilt rotation
         y0 = dy_cone - self.geo.yoff + comp_tilt 
         x0 = self.geo.xoff
-
+        # evaluate the eccentricity and parameterise
+        # the resulting conic accordingly
         if 0 <= abs(ecc) < 1:
             # circle/ellipse
             t = np.linspace(-np.pi, np.pi, steps)
@@ -658,7 +665,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             a = np.sign(ecc) * self.geo.dist * np.tan(theta)
             x = x0 + a*t
             y = y0 - dy_cone + yd + a/2*t**2
-        elif 1 < abs(ecc) < 100:
+        elif 1 < abs(ecc) < 100:# 100 arbitrarily chosen, 10 was too low!
             # hyperbola
             t = np.linspace(-np.pi, np.pi, steps)
             yd = (y1-y2)/2
@@ -699,19 +706,17 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             x = x[l]
             y = y[l]
         
-        # position labels according to rotation angle
+        # adjust the label position to maintain readibility
+        # this works for most cases but is not the most optimal solution yet
+        # OR: use the actual beam position to determine label position
+        # beam_pos_y = -(self.geo.yoff + np.tan(np.deg2rad(self.geo.rota))*self.geo.dist)
         if omega <= 0:
             label_pos = max(y) if theta < np.pi/2 else min(y)
         else:
             label_pos = min(y) if theta < np.pi/2 else max(y)
-        return np.vstack([x, y]).T, label_pos
         
-    def calc_cone(self, X, Y, Z, rotmat, comp, xoff, yoff):
-        # rotate the sample around y
-        t = np.transpose(np.array([X,Y,Z]), (1,2,0))
-        # apply rotation
-        X,Y,Z = np.transpose(np.dot(t, rotmat), (2,0,1))
-        return Y+xoff, X+comp-yoff, Z
+        # return x,y data as 2d array and the label position
+        return np.vstack([x, y]).T, label_pos
 
     def show_tooltip(self, widget, event):
         if not widget.name or not self.plo.cont_ref_hkl:
@@ -788,7 +793,10 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         conv = {'geo':self.geo, 'plo':self.plo, 'lmt':self.lmt}
         for key, vals in pars.items():
                 for p, x in vals.items():
-                    setattr(conv[key], p, x)
+                    if p in conv[key].__dict__.keys():
+                        setattr(conv[key], p, x)
+                    else:
+                        print(f'WARNING: "{p}" is not a valid key!')
 
 class container(object):
     pass
