@@ -102,7 +102,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.ax.getPlotItem().hideAxis('bottom')
         self.ax.getPlotItem().hideAxis('left')
         # disable pan/zoom
-        #self.ax.setMouseEnabled(x=False, y=False)
+        self.ax.setMouseEnabled(x=False, y=False)
         # disable right click  context menu
         self.ax.setMenuEnabled(False)
         # hide the autoscale button
@@ -110,28 +110,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
 
         # get colormap
         self.plo.cont_cmap = pg.colormap.get(self.plo.cont_geom_cmap_name)
-
-        # container for contour lines
-        self.plo.contours = {'conic':[], 'ref':[], 'labels':[]}
-        # add empty plot per contour line
-        font = QtGui.QFont()
-        font.setPixelSize(self.plo.cont_geom_label_size)
-        font.setBold(True)
-        for i in range(self.plo.cont_tth_num):
-            self.plo.contours['conic'].append(self.ax.plot(useCache=True))
-            temp_label = pg.TextItem(anchor=(0.5,0.5), fill=pg.mkBrush('w'))
-            temp_label.setFont(font)
-            self.plo.contours['labels'].append(temp_label)
-            self.ax.addItem(temp_label)
-
-
-        # add empty plot per reference contour line
-        for i in range(self.plo.cont_ref_num):
-            self.plo.contours['ref'].append(self.ax.plot(useCache=True))
-            self.plo.contours['ref'][i].setAlpha(self.plo.cont_ref_alpha, False)
-            self.plo.contours['ref'][i].setCurveClickable(True, width=self.plo.cont_ref_lw)
-            self.plo.contours['ref'][i].sigClicked.connect(self.show_tooltip)
-            self.plo.contours['ref'][i].name = None
 
         # add beam center scatter plot
         self.plo.beam_center = pg.ScatterPlotItem()
@@ -154,6 +132,28 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # generate contour levels
         self.plo.cont_geom_num = np.linspace(self.plo.cont_tth_min, self.plo.cont_tth_max, self.plo.cont_tth_num)
 
+        # container for contour lines
+        self.plo.contours = {'conic':[], 'ref':[], 'labels':[]}
+        # add empty plot per contour line
+        font = QtGui.QFont()
+        font.setPixelSize(self.plo.cont_geom_label_size)
+        font.setBold(True)
+        for i in range(self.plo.cont_tth_num):
+            self.plo.contours['conic'].append(self.ax.plot(useCache=True, antialias=True))
+            temp_label = pg.TextItem(anchor=(0.5,0.5), fill=pg.mkBrush('w'))
+            temp_label.setFont(font)
+            self.plo.contours['labels'].append(temp_label)
+            self.ax.addItem(temp_label)
+
+
+        # add empty plot per reference contour line
+        for i in range(self.plo.cont_ref_num):
+            self.plo.contours['ref'].append(self.ax.plot(useCache=True, antialias=True))
+            self.plo.contours['ref'][i].setAlpha(self.plo.cont_ref_alpha, False)
+            self.plo.contours['ref'][i].setCurveClickable(True, width=self.plo.cont_ref_lw)
+            self.plo.contours['ref'][i].sigClicked.connect(self.show_tooltip)
+            self.plo.contours['ref'][i].name = None
+        
         # build detector modules
         self.build_detector()
 
@@ -544,20 +544,17 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             # now there's no turning back!
             omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
 
-            # skip > +-90 deg contours
-            if theta < np.pi/2 + abs(omega):
-                self.plo.contours['conic'][_n].setVisible(True)
-                self.plo.contours['labels'][_n].setVisible(True)
-            else:
+            # calculate the conic section corresponding to the theta angle
+            # :returns False is conic is outside of visiblee area
+            conic, label_pos = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
+            if conic is False:
                 self.plo.contours['conic'][_n].setVisible(False)
                 self.plo.contours['labels'][_n].setVisible(False)
                 continue
-            
-            # calculate the conic section corresponding to the theta angle
-            conic, label_pos = self.calc_conic(omega, theta, return_label_pos=True, steps=self.plo.cont_steps)
 
             # plot the conic section
             self.plo.contours['conic'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw))
+            self.plo.contours['conic'][_n].setVisible(True)
 
             # Conversion factor keV to Angstrom: 12.398
             # sin(t)/l: np.sin(Theta) / lambda -> (12.398/geo_energy)
@@ -571,6 +568,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             _units = {0:_ttd, 1:dsp, 2:stl*4*np.pi, 3:stl}
             self.plo.contours['labels'][_n].setPos(self.geo.xoff, label_pos)
             self.plo.contours['labels'][_n].setText(f'{_units[self.geo.unit]:.2f}', color=self.plo.cont_cmap.map(_f, mode='qcolor'))
+            self.plo.contours['labels'][_n].setVisible(True)
 
     def draw_reference(self):
         # plot reference contour lines
@@ -602,7 +600,11 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                     continue
                 
                 # calculate the conic section corresponding to the theta angle
-                conic = self.calc_conic(omega, theta, return_label_pos=False, steps=self.plo.cont_steps)
+                # :returns False is conic is outside of visiblee area
+                conic = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
+                if not conic:
+                    self.plo.contours['ref'][_n].setVisible(False)
+                    continue
 
                 # plot the conic section
                 self.plo.contours['ref'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
@@ -619,11 +621,18 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 # hide the superfluous ones
                 self.plo.contours['ref'][_n].setVisible(False)
     
-    def calc_conic(self, omega, theta, return_label_pos=True, steps=500):
+    def calc_conic(self, omega, theta, steps=500):
         # This functions documentation is in a terrible state!
         # I really hope I can find the time to comment the steps
         # not only to make sure I don't forget what I was thinking
         # but to make your life a little easier understanding it.
+
+
+        # skip drawing smaller/larger +-90 deg contours
+        # reject overlap of the 'backscattering'
+        # -> limitation of the geometric model
+        if theta > np.pi/2 + abs(omega):
+            return False, False
 
         dy_cone = self.geo.dist * np.tan(omega)
         dz_cone = np.sqrt(self.geo.dist**2 + dy_cone**2)
@@ -641,6 +650,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         x0 = self.geo.xoff
 
         if 0 <= abs(ecc) < 1:
+            # circle/ellipse
             t = np.linspace(-np.pi, np.pi, steps)
             yd = (y1-y2)/2
             h = (y1+y2)/2
@@ -648,12 +658,14 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             x = x0 + w * np.sin(t)
             y = y0 + yd + h * np.cos(t)
         elif abs(ecc) == 1:
+            # parabola
             t = np.linspace(-10, 10, steps)
             yd = np.sign(ecc) * self.geo.dist * np.tan(abs(omega) - theta)
             a = np.sign(ecc) * self.geo.dist * np.tan(theta)
             x = x0 + a*t
             y = y0 - dy_cone + yd + a/2*t**2
         elif 1 < abs(ecc) < 100:
+            # hyperbola
             t = np.linspace(-np.pi, np.pi, steps)
             yd = (y1-y2)/2
             h = np.sign(omega) * (y1+y2)/2
@@ -661,20 +673,44 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             x = x0 + w * np.sinh(t)
             y = y0 + yd - h * np.cosh(t)
         elif abs(ecc) >= 100:
+            # line
             t = np.linspace(-10, 10, steps)
             a = -np.sign(ecc) * min(abs(y1), abs(y2)) / 2
             x = x0 + a*t
             y = y0 + np.ones(len(t))*2*a
         
-        if return_label_pos:
-            # position labels according to rotation angle
-            if omega <= 0:
-                label_pos = max(y) if theta < np.pi/2 else min(y)
-            else:
-                label_pos = min(y) if theta < np.pi/2 else max(y)
-            return np.vstack([x, y]).T, label_pos
+        # check value overlap with detector area
+        # add a margin to make sure contours are
+        # spanning the full area -> coarse stepsize
+        max_dim_x = self.plo.xdim * 1.1
+        max_dim_y = self.plo.ydim * 1.1
+        cx = np.argwhere((x >= -max_dim_x) & (x <= max_dim_x))
+        cy = np.argwhere((y >= -max_dim_y) & (y <= max_dim_y))
+        # crop and reject
+        if len(cy) == 0 or len(cx) == 0:
+            # outside detector area
+            return False, False
         else:
-            return np.vstack([x, y]).T
+            # crop the contour
+            # this does not crop ellipses reaching far out
+            # to cut those I need to figure out how to come
+            # up with proper 'connect' values as the plotting
+            # algorithm would connect the loose ends across the screen!
+            # this is to cut the 2d array:
+            #c = np.vstack([x, y]).T
+            #contour = c[(c[:,0] >= -max_dim_y) & (c[:,0] <= max_dim_y) & (c[:,1] >= -max_dim_x) & (c[:,1] <= max_dim_x)]
+            #
+            #print(np.rad2deg(theta), x[cx.min()], x[cx.max()], y[cy.min()], y[cy.max()], self.plo.xdim, self.plo.ydim)
+            l = list(range(max(cx.min(), cy.min()), min(cx.max(), cy.max())+1))
+            x = x[l]
+            y = y[l]
+        
+        # position labels according to rotation angle
+        if omega <= 0:
+            label_pos = max(y) if theta < np.pi/2 else min(y)
+        else:
+            label_pos = min(y) if theta < np.pi/2 else max(y)
+        return np.vstack([x, y]).T, label_pos
         
     def calc_cone(self, X, Y, Z, rotmat, comp, xoff, yoff):
         # rotate the sample around y
