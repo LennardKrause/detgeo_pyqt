@@ -582,6 +582,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 # lambda -> (12.398/geo_energy)
                 lambda_d = (12.398/self.geo.ener) / (2*_d)
                 if lambda_d > 1.0:
+                    self.plo.contours['ref'][_n].setVisible(False)
                     continue
                 
                 # get theta
@@ -592,22 +593,16 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 # now there's no turning back!
                 omega = -np.deg2rad(self.geo.tilt + self.geo.rota)
                 
-                # skip relative theta > +-90 deg contours
-                if theta < np.pi/2 + abs(omega):
-                    self.plo.contours['ref'][_n].setVisible(True)
-                else:
-                    self.plo.contours['ref'][_n].setVisible(False)
-                    continue
-                
                 # calculate the conic section corresponding to the theta angle
                 # :returns False is conic is outside of visiblee area
-                conic = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
-                if not conic:
+                conic, _ = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
+                if conic is False:
                     self.plo.contours['ref'][_n].setVisible(False)
                     continue
 
                 # plot the conic section
                 self.plo.contours['ref'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
+                self.plo.contours['ref'][_n].setVisible(True)
                 
                 # if hkl are available
                 # put them in the proper container for the contour
