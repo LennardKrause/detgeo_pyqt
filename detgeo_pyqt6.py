@@ -162,6 +162,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
 
         # create cones and draw contour lines
         self.update_screen()
+        self.set_window_title()
 
     def init_menus(self):
         menuBar = QtWidgets.QMenuBar()
