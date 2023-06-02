@@ -24,7 +24,7 @@
   - 2023-04-10 Bugfix: Main window aspect ratio on Windows (menu bar within window).
   - 2023-04-10 Bugfix: Label size could not be adjusted.
   - 2023-04-10 Bugfix: Large angle (2-Theta > 90) contour label positions.
-  - 2023-04-09 Update: Drop a cif file onto the window to draw its contours (uses [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/) and [Dans_Diffraction](https://github.com/DanPorter/Dans_Diffraction)).
+  - 2023-04-09 Update: Drop a cif file onto the window to draw its contours (uses [Dans_Diffraction](https://github.com/DanPorter/Dans_Diffraction)).
   - 2023-04-05 Update: Uses pyqt6, pyqtgraph and contourpy, dropped matplotlib backend.
 
 ## Older updates
