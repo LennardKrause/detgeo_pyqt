@@ -270,7 +270,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # reject low intensities: based on median or mean?
         # median is always around unity -> useless
         # mean rejects many, add adjustable multiplicator?
-        used = reflections[reflections[:,4] > self.plo.cont_ref_min_int]
+        used = reflections[reflections[:,4] > reflections[:,4].max() * self.plo.cont_ref_min_int]
         # sort by intensity -> ascending -> flip
         ordered = used[used[:, 4].argsort()][::-1]
         # pick the strongest
@@ -357,14 +357,14 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_ref_color = 'gray'         # [color]  Reference contour color
         plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
         plo.cont_ref_num = 60               # [int]    Number of reference contours
-        plo.cont_ref_min_int = 10           # [int]    Minimum display intensity
+        plo.cont_ref_min_int = 0.01         # [int]    Minimum display intensity (cif)
         plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltip
         plo.cont_ref_hkl_int = True         # [bool]   Include intensity in hkl tooltip
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
         plo.module_color = 'gray'           # [color]  Detector module color
         # - general section - 
-        plo.cont_steps = 500                # [int]    Contour steps
+        plo.cont_steps = 1000               # [int]    Contour steps
         plo.plot_size = 768                 # [int]    Plot size, px
         plo.unit_label_size = 16            # [int]    Label size, px
         plo.unit_label_color = 'gray'       # [str]    Label color
@@ -434,9 +434,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # Detector Specifications #
         ###########################
         detectors = dict()
-            ###############################
-            # Specifications for Pilatus3 #
-            ###############################
+        ###############################
+        # Specifications for Pilatus3 #
+        ###############################
         detectors['PILATUS3'] = {
             'hms' : 83.8,    # [mm]  Module size (horizontal)
             'vms' : 33.5,    # [mm]  Module size (vertical)
@@ -446,22 +446,26 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             'cbh' : 0,       # [mm]  Central beam hole
             'size' : {'300K':(1,3),'1M':(2,5),'2M':(3,8),'6M':(5,12)},
             }
-            ###############################
-            # Specifications for Pilatus4 #
-            ###############################
+        ###############################
+        # Specifications for Pilatus4 #
+        ###############################
+        # Note: These are probably not
+        # the correct PILATUS4 specs
+        # and are only meant to play
+        # around!
         detectors['PILATUS4'] = {
             'hms' : 75.0,    # [mm]  Module size (horizontal)
             'vms' : 39.0,    # [mm]  Module size (vertical)
             'pxs' : 150e-3,  # [mm]  Pixel size
-            'hgp' : 8,       # [pix] Gap between modules (horizontal)
-            'vgp' : 12,      # [pix] Gap between modules (vertical)
+            'hgp' : 19,      # [pix] Gap between modules (horizontal)
+            'vgp' : 6,       # [pix] Gap between modules (vertical)
             'cbh' : 0,       # [mm]  Central beam hole
-            'size' : {'260K':(1,2),'800K':(2,3),'1M':(2,4),'1.5M':(3,4),'2M':(3,6),'3M':(4,6)}
+            'size' : {'1M':(2,4),'2M':(3,6),'4M':(4,8)}
             }
         
-            #############################
-            # Specifications for Eiger2 #
-            #############################
+        #############################
+        # Specifications for Eiger2 #
+        #############################
         detectors['EIGER2'] = {
             'hms' : 77.1,    # [mm]  Module size (horizontal)
             'vms' : 38.4,    # [mm]  Module size (vertical)
@@ -472,9 +476,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
             'size' : {'1M':(1,2),'4M':(2,4),'9M':(3,6),'16M':(4,8)},
             }
         
-            #############################
-            # Specifications for MPCCD #
-            #############################
+        #############################
+        # Specifications for MPCCD #
+        #############################
         detectors['MPCCD'] = {
             'hms' : 51.2,    # [mm]  Module size (horizontal)
             'vms' : 25.6,    # [mm]  Module size (vertical)
