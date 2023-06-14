@@ -5,7 +5,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from pyFAI import calibrant
 import Dans_Diffraction as dif
 
-class MainWindow(pg.QtWidgets.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # set path home
@@ -43,10 +43,10 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.geo.ref_custom_hkl = {}
 
         # define grid layout
-        self.layout = pg.QtWidgets.QGridLayout()
+        self.layout = QtWidgets.QGridLayout()
         
         # make a widget, set the layout
-        centralwidget = pg.QtWidgets.QWidget()
+        centralwidget = QtWidgets.QWidget()
         centralwidget.setLayout(self.layout)
 
         self.setCentralWidget(centralwidget)
@@ -126,9 +126,6 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         # resize the window
         self.resize(int(self.plo.plot_size*self.plo.xdim/self.plo.ydim), self.plo.plot_size + self.offset_win32)
 
-        # scale contour grid to detector size
-        self.plo.cont_grid_max = int(np.ceil(max(self.plo.xdim, self.plo.ydim)))
-        
         # generate contour levels
         self.plo.cont_geom_num = np.linspace(self.plo.cont_tth_min, self.plo.cont_tth_max, self.plo.cont_tth_num)
 
@@ -527,7 +524,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                              + (self.det.vgp * self.det.pxs)/2 \
                              + (self.det.cbh/2) * (1-2*(i & self.det.hmn) // self.det.hmn)
                 # add the module
-                rect_item = pg.QtWidgets.QGraphicsRectItem(origin_x, origin_y,  self.det.hms, self.det.vms)
+                rect_item = QtWidgets.QGraphicsRectItem(origin_x, origin_y,  self.det.hms, self.det.vms)
                 rect_item.setPen(pg.mkPen(color = self.plo.module_color, width = 0))
                 rect_item.setBrush(pg.mkBrush(color = self.plo.module_color))
                 rect_item.setOpacity(self.plo.module_alpha)
