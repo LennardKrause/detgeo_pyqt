@@ -58,7 +58,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         self.det = self.get_specs_det(self.detectors, self.geo.det_type, self.geo.det_size)
         
         # add the plot to the layout
-        self.ax = pg.plot(useCache=True, pxMode=True)
+        self.ax = pg.plot(useCache=True, pxMode=True, clipToView=True)
         # added to avoid the error:
         # qt.pointer.dispatch: skipping QEventPoint(id=0 ts=0 pos=0,0 scn=482.023,246.011
         # gbl=482.023,246.011 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-482.023,-246.011
@@ -138,21 +138,24 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         font = QtGui.QFont()
         font.setPixelSize(self.plo.cont_geom_label_size)
         font.setBold(True)
-        for i in range(self.plo.cont_tth_num):
-            self.plo.contours['conic'].append(self.ax.plot(useCache=True, antialias=True))
-            temp_label = pg.TextItem(anchor=(0.5,0.5), fill=pg.mkBrush('w'))
-            temp_label.setFont(font)
-            self.plo.contours['labels'].append(temp_label)
-            self.ax.addItem(temp_label)
-
 
         # add empty plot per reference contour line
         for i in range(self.plo.cont_ref_num):
-            self.plo.contours['ref'].append(self.ax.plot(useCache=True, antialias=True))
-            self.plo.contours['ref'][i].setAlpha(self.plo.cont_ref_alpha, False)
-            self.plo.contours['ref'][i].setCurveClickable(True, width=self.plo.cont_ref_lw)
+            ref = pg.PlotCurveItem(useCache=True)
+            self.ax.addItem(ref)
+            self.plo.contours['ref'].append(ref)
+            self.plo.contours['ref'][i].setClickable(True, width=self.plo.cont_ref_lw)
             self.plo.contours['ref'][i].sigClicked.connect(self.show_tooltip)
             self.plo.contours['ref'][i].name = None
+            
+        for i in range(self.plo.cont_tth_num):
+            curve = pg.PlotCurveItem(useCache=True)
+            self.ax.addItem(curve)
+            self.plo.contours['conic'].append(curve)
+            temp_label = pg.TextItem(anchor=(0.5,0.5), fill=pg.mkBrush(self.plo.cont_ref_hkl_fill))
+            temp_label.setFont(font)
+            self.plo.contours['labels'].append(temp_label)
+            self.ax.addItem(temp_label)
         
         # build detector modules
         self.build_detector()
@@ -354,18 +357,18 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         plo.cont_geom_label_size = 14       # [int]    Contour label size
         plo.cont_geom_cmap_name = 'viridis' # [cmap]   Contour colormap (geometry)
         # - reference contour section - 
-        plo.cont_ref_alpha = 0.25           # [float]  Reference contour alpha
-        plo.cont_ref_color = 'gray'         # [color]  Reference contour color
-        plo.cont_ref_lw = 5.0               # [float]  Reference contour linewidth
-        plo.cont_ref_num = 60               # [int]    Number of reference contours
+        plo.cont_ref_color = 'lightgray'    # [color]  Reference contour color
+        plo.cont_ref_lw = 14.0              # [float]  Reference contour linewidth
+        plo.cont_ref_num = 100              # [int]    Number of reference contours
         plo.cont_ref_min_int = 0.01         # [int]    Minimum display intensity (cif)
         plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltip
-        plo.cont_ref_hkl_int = True         # [bool]   Include intensity in hkl tooltip
+        plo.cont_ref_hkl_int = False        # [bool]   Include intensity in hkl tooltip
+        plo.cont_ref_hkl_fill = 'white'     # [str]    Label fill color
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
         plo.module_color = 'gray'           # [color]  Detector module color
         # - general section - 
-        plo.cont_steps = 1000               # [int]    Contour steps
+        plo.cont_steps = 100                # [int]    Conic resolution
         plo.plot_size = 768                 # [int]    Plot size, px
         plo.unit_label_size = 16            # [int]    Label size, px
         plo.unit_label_color = 'gray'       # [str]    Label color
@@ -394,14 +397,14 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         lmt.xoff_min = -150.0  # [float] Horizontal offset minimum [mm]
         lmt.xoff_max =  150.0  # [float] Horizontal offset maximum [mm]
         lmt.xoff_stp =  1.0    # [float] Horizontal offset step size [mm]
-        lmt.yoff_min =  0.0    # [float] Vertical offset minimum [mm]
+        lmt.yoff_min = -250.0  # [float] Vertical offset minimum [mm]
         lmt.yoff_max =  250.0  # [float] Vertical offset maximum [mm]
         lmt.yoff_stp =  1.0    # [float] Vertical offset step size [mm]
         lmt.rota_min = -60.0   # [float] Rotation minimum [deg]
         lmt.rota_max =  60.0   # [float] Rotation maximum [deg]
         lmt.rota_stp =  1.0    # [float] Rotation step size [deg]
-        lmt.tilt_min = -30.0   # [float] Tilt minimum [deg]
-        lmt.tilt_max =  30.0   # [float] Tilt maximum [deg]
+        lmt.tilt_min = -25.0   # [float] Tilt minimum [deg]
+        lmt.tilt_max =  25.0   # [float] Tilt maximum [deg]
         lmt.tilt_stp =  1.0    # [float] Tilt step size [deg]
         
         return lmt
@@ -540,8 +543,9 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                                      symbol = self.plo.cont_geom_cmark,
                                      size = self.plo.cont_geom_csize,
                                      brush = pg.mkBrush(self.plo.cont_cmap.map(0, mode='qcolor')))
-        # compensation to revert the rotated distance for the tilt
         for _n, _ttd in enumerate(self.plo.cont_geom_num):
+            self.plo.contours['conic'][_n].setVisible(False)
+            self.plo.contours['labels'][_n].setVisible(False)
             # current fraction for colormap
             _f = _n/len(self.plo.cont_geom_num)
 
@@ -555,14 +559,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
 
             # calculate the conic section corresponding to the theta angle
             # :returns False is conic is outside of visiblee area
-            conic, label_pos = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
-            if conic is False:
-                self.plo.contours['conic'][_n].setVisible(False)
-                self.plo.contours['labels'][_n].setVisible(False)
+            x, y, label_pos = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
+            if x is False or len(x) == 0:
                 continue
 
             # plot the conic section
-            self.plo.contours['conic'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw))
+            self.plo.contours['conic'][_n].setData(x, y, pen=pg.mkPen(self.plo.cont_cmap.map(_f, mode='qcolor'), width=self.plo.cont_geom_lw))
             self.plo.contours['conic'][_n].setVisible(True)
 
             # Conversion factor keV to Angstrom: 12.398
@@ -608,12 +610,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 
                 # calculate the conic section corresponding to the theta angle
                 # :returns False is conic is outside of visiblee area
-                conic, _ = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
-                if conic is False:
+                x, y, _ = self.calc_conic(omega, theta, steps=self.plo.cont_steps)
+                if x is False:
                     continue
 
                 # plot the conic section
-                self.plo.contours['ref'][_n].setData(conic, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
+                self.plo.contours['ref'][_n].setData(x, y, pen=pg.mkPen(self.plo.cont_ref_color, width=self.plo.cont_ref_lw))
                 self.plo.contours['ref'][_n].setVisible(True)
                 
                 # if hkl are available
@@ -624,17 +626,12 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 else:
                     self.plo.contours['ref'][_n].name = None
     
-    def calc_conic(self, omega, theta, steps=500):
-        # This functions documentation is in a terrible state!
-        # I really hope I can find the time to comment the steps
-        # not only to make sure I don't forget what I was thinking
-        # but to make your life a little easier understanding it.
-
+    def calc_conic(self, omega, theta, steps=100):
         # skip drawing smaller/larger +-90 deg contours
         # reject overlap of the 'backscattering'
-        # -> limitation of the geometric model
+        # -> limitation of the current implementation
         if theta > np.pi/2 + abs(omega):
-            return False, False
+            return False, False, False
 
         # y axis offset of the cone center
         dy_cone = self.geo.dist * np.tan(omega)
@@ -659,61 +656,68 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         x0 = self.geo.xoff
         # evaluate the eccentricity and parameterise
         # the resulting conic accordingly
-        if 0 <= abs(ecc) < 1:
-            # circle/ellipse
-            t = np.linspace(-np.pi, np.pi, steps)
+        if abs(ecc) == 0:
+            # circle
+            h = (y1+y2)/2
+            # check if the circle is visible
+            if h - np.sqrt(y0**2 + x0**2) > np.sqrt(self.plo.ydim**2 + self.plo.xdim**2):
+                return False, False, False
+            t = np.linspace(0, 2*np.pi, 2*steps)
+            x = x0 + h * np.sin(t)
+            y = y0 + (y1-y2)/2 + h * np.cos(t)
+        elif 0 < abs(ecc) < 1:
+            # ellipse
             yd = (y1-y2)/2
             h = (y1+y2)/2
             w = dz_cone * np.sin(theta) * (y1+y2) / (2 * np.sqrt(y1*y2) * np.cos(theta))
+            # ellipses that expand ouside the visible area:
+            # add a margin to make sure the connecting line
+            # of segmented ellipses is outside the visible area
+            #
+            # I hope this is faster than generating and handing
+            # over a 'connect' array to the setData function
+            # of the plotItem
+            _xlim1 = (self.plo.xdim * 1.05 + x0) / w
+            _xlim2 = (self.plo.xdim * 1.05 - x0) / w
+            if _xlim1 < 1 and _xlim2 < 1:
+                l = -np.arcsin(_xlim1)
+                r =  np.arcsin(_xlim2)
+                t = np.hstack([np.linspace(l, r, steps), np.linspace(-r+np.pi, -l+np.pi, steps)])
+            else:
+                t = np.linspace(0, 2*np.pi, 2*steps)
             x = x0 + w * np.sin(t)
             y = y0 + yd + h * np.cos(t)
         elif abs(ecc) == 1:
             # parabola
-            t = np.linspace(-10, 10, steps)
             yd = np.sign(ecc) * self.geo.dist * np.tan(abs(omega) - theta)
             a = np.sign(ecc) * self.geo.dist * np.tan(theta)
+            l = -(self.plo.xdim + x0) / a
+            r =  (self.plo.xdim - x0) / a
+            t = np.linspace(l, r, steps)
             x = x0 + a*t
-            y = y0 - dy_cone + yd + a/2*t**2
-        elif 1 < abs(ecc) < 100:# 100 arbitrarily chosen, 10 was too low!
+            y = y0 - dy_cone + yd + a/2 * t**2
+        elif 1 < abs(ecc) < 100:
             # hyperbola
-            t = np.linspace(-np.pi, np.pi, steps)
-            yd = (y1-y2)/2
             h = np.sign(omega) * (y1+y2)/2
             w = h * np.sqrt(e21)
+            l = -np.arcsinh((self.plo.xdim + x0) / w)
+            r =  np.arcsinh((self.plo.xdim - x0) / w)
+            t = np.linspace(l, r, steps)
             x = x0 + w * np.sinh(t)
-            y = y0 + yd - h * np.cosh(t)
+            y = y0 + (y1-y2)/2 - h * np.cosh(t)
         elif abs(ecc) >= 100:
             # line
-            t = np.linspace(-10, 10, steps)
-            a = -np.sign(ecc) * min(abs(y1), abs(y2)) / 2
-            x = x0 + a*t
-            y = y0 + np.ones(len(t))*2*a
-        
-        # check value overlap with detector area
-        # add a margin to make sure contours are
-        # spanning the full area -> coarse stepsize
-        max_dim_x = self.plo.xdim * 1.1
-        max_dim_y = self.plo.ydim * 1.1
-        cx = np.argwhere((x >= -max_dim_x) & (x <= max_dim_x))
-        cy = np.argwhere((y >= -max_dim_y) & (y <= max_dim_y))
-        # crop and reject
+            t = np.linspace(-self.plo.xdim, self.plo.xdim, 2)
+            a = -np.sign(ecc) * min(abs(y1), abs(y2))
+            x = t
+            y = y0 + np.ones(len(t)) * a
+
+        # check if conic is visible
+        cx = np.argwhere((x >= -self.plo.xdim) & (x <= self.plo.xdim))
+        cy = np.argwhere((y >= -self.plo.ydim) & (y <= self.plo.ydim))
         if len(cy) == 0 or len(cx) == 0:
             # outside detector area
-            return False, False
-        else:
-            # crop the contour
-            # this does not crop ellipses reaching far out
-            # to cut those I need to figure out how to come
-            # up with proper 'connect' values as the plotting
-            # algorithm would connect the loose ends across the screen!
-            # this is to cut the 2d array:
-            #c = np.vstack([x, y]).T
-            #contour = c[(c[:,0] >= -max_dim_y) & (c[:,0] <= max_dim_y) & (c[:,1] >= -max_dim_x) & (c[:,1] <= max_dim_x)]
-            #
-            #print(np.rad2deg(theta), x[cx.min()], x[cx.max()], y[cy.min()], y[cy.max()], self.plo.xdim, self.plo.ydim)
-            l = list(range(max(cx.min(), cy.min()), min(cx.max(), cy.max())+1))
-            x = x[l]
-            y = y[l]
+            return False, False, False
         
         # adjust the label position to maintain readibility
         # this works for most cases but is not the most optimal solution yet
@@ -724,8 +728,8 @@ class MainWindow(pg.QtWidgets.QMainWindow):
         else:
             label_pos = min(y) if theta < np.pi/2 else max(y)
         
-        # return x,y data as 2d array and the label position
-        return np.vstack([x, y]).T, label_pos
+        # return x, y and the label position
+        return x, y, label_pos
 
     def show_tooltip(self, widget, event):
         if not widget.name or not self.plo.cont_ref_hkl:
@@ -748,6 +752,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                 self.geo.xoff = float(val)
             elif self.sender().objectName() == 'ener':
                 self.geo.ener = float(val)
+
         # re-calculate cones and re-draw contours
         self.draw_contours()
         # draw reference contours
