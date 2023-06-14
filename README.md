@@ -16,6 +16,7 @@
  - Add all the missing detectors to the _detectors.json_ file.
 
 ## Latest updates:
+  - 2023-06-14 Update: Big speed update.
   - 2023-06-01 Update: countourpy was dropped, the conics are now calculated directly instead of being evaluated on a grid.
   - 2023-05-25 Update: Dans_Diffraction is used in favour of gemmi as it allows the direct calculation of intensities from the cif.
   - 2023-04-26 Update: A hkl tooltip is shown on click on a contour (only for cif contours).
