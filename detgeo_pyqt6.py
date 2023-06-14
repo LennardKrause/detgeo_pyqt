@@ -91,7 +91,7 @@ class MainWindow(pg.QtWidgets.QMainWindow):
                     background: #aad3d3d3;
                 }
                 SliderWidget:hover {
-                    background: #aad3d3d3;
+                    background: #d3d3d3;
                 }
             ''')
 
