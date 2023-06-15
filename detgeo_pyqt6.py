@@ -1,9 +1,11 @@
-import os, sys, json
+import os
+import sys
+import json
 import numpy as np
 import pyqtgraph as pg
+import Dans_Diffraction as dif
 from PyQt6 import QtWidgets, QtCore, QtGui
 from pyFAI import calibrant
-import Dans_Diffraction as dif
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -58,7 +60,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.det = self.get_specs_det(self.detectors, self.geo.det_type, self.geo.det_size)
         
         # add the plot to the layout
-        self.ax = pg.plot(useCache=True, pxMode=True, clipToView=True)
+        self.ax = pg.plot(useCache=True, clipToView=True)
         # added to avoid the error:
         # qt.pointer.dispatch: skipping QEventPoint(id=0 ts=0 pos=0,0 scn=482.023,246.011
         # gbl=482.023,246.011 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-482.023,-246.011
@@ -84,16 +86,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # populate the menus with detectors, references and units
         self.init_menus()
         self.sliderWidget = SliderWidget(self, self.geo, self.plo, self.lmt)
-        self.setStyleSheet('''
-                SliderWidget {
-                    border: 1px outset darkGray;
-                    border-radius: 4px;
-                    background: #aad3d3d3;
-                }
-                SliderWidget:hover {
-                    background: #d3d3d3;
-                }
-            ''')
+        self.setStyleSheet(f"""
+                SliderWidget {{
+                    border: {self.plo.slider_border_width}px outset {self.plo.slider_border_color};
+                    border-radius: {self.plo.slider_border_radius}px;
+                    background: {self.plo.slider_back_color};
+                }}
+                SliderWidget:hover {{
+                    background: {self.plo.slider_hover_color};
+                }}
+            """)
 
     def init_screen(self):
         # init the plot for contours and beam center
@@ -348,29 +350,36 @@ class MainWindow(QtWidgets.QMainWindow):
         plo.cont_tth_min = 5                # [int]    Minimum 2-theta contour line
         plo.cont_tth_max = 150              # [int]    Maximum 2-theta contour line
         plo.cont_tth_num = 30               # [int]    Number of contour lines
-        plo.cont_geom_cmark = 'o'           # [marker] Beam center marker (geometry)
-        plo.cont_geom_csize = 6             # [int]    Beam center size (geometry)
-        plo.cont_geom_lw = 4.0              # [float]  Contour linewidth
+        plo.cont_geom_cmark = 'o'           # [marker] Beam center marker
+        plo.cont_geom_csize = 6             # [int]    Beam center size
+        plo.cont_geom_lw = 3.0              # [float]  Contour linewidth
         plo.cont_geom_label_size = 14       # [int]    Contour label size
-        plo.cont_geom_cmap_name = 'viridis' # [cmap]   Contour colormap (geometry)
+        plo.cont_geom_cmap_name = 'viridis' # [cmap]   Contour colormap
         # - reference contour section - 
-        plo.cont_ref_color = 'lightgray'    # [color]  Reference contour color
-        plo.cont_ref_lw = 14.0              # [float]  Reference contour linewidth
+        plo.cont_ref_color = '#DCDCDC'      # [color]  Reference contour color
+        plo.cont_ref_lw = 12.0              # [float]  Reference contour linewidth
         plo.cont_ref_num = 100              # [int]    Number of reference contours
         plo.cont_ref_min_int = 0.01         # [int]    Minimum display intensity (cif)
         plo.cont_ref_hkl_size = 14          # [int]    Font size of hkl tooltip
         plo.cont_ref_hkl_int = False        # [bool]   Include intensity in hkl tooltip
-        plo.cont_ref_hkl_fill = 'white'     # [str]    Label fill color
+        plo.cont_ref_hkl_fill = '#FFFFFF'   # [str]    Label fill color
         # - module section - 
         plo.module_alpha = 0.20             # [float]  Detector module alpha
-        plo.module_color = 'gray'           # [color]  Detector module color
+        plo.module_color = '#404040'        # [color]  Detector module color
         # - general section - 
         plo.cont_steps = 100                # [int]    Conic resolution
         plo.plot_size = 768                 # [int]    Plot size, px
         plo.unit_label_size = 16            # [int]    Label size, px
-        plo.unit_label_color = 'gray'       # [str]    Label color
-        plo.unit_label_fill = 'white'       # [str]    Label fill color
+        plo.unit_label_color = '#808080'    # [str]    Label color
+        plo.unit_label_fill = '#FFFFFF'     # [str]    Label fill color
         # -slider section - 
+        plo.slider_border_width = 1         # [int]    Slider window border width
+        plo.slider_border_radius = 0        # [int]    Slider window border radius (px)
+        plo.slider_border_color = '#808080' # [str]    Slider window border color
+        plo.slider_back_color = '#AAC0C0C0' # [str]    Slider window background color
+        plo.slider_hover_color = '#C0C0C0'  # [str]    Slider window hover color
+        plo.slider_label_size = 14          # [int]    Slider window label size
+        plo.slider_label_color = '#000000'  # [str]    Slider window label color
         plo.action_ener = True              # [bool]   Show energy slider
         plo.action_dist = True              # [bool]   Show distance slider
         plo.action_rota = True              # [bool]   Show rotation slider
@@ -827,12 +836,12 @@ class SliderWidget(QtWidgets.QFrame):
         self.box_width_add = 60
         layout.addWidget(frame)
 
-        frame.setStyleSheet('''
-            QFrame {
-                border: 1px solid darkGray;
-                border-radius: 2px;
-                background: #aa646464;
-            }
+        frame.setStyleSheet(f'''
+            QFrame {{
+                border: {self.plo.slider_border_width}px solid {self.plo.slider_border_color};
+                border-radius: {self.plo.slider_border_radius}px;
+                background: {self.plo.slider_border_color};
+            }}
         ''')
 
         self.box = QtWidgets.QGroupBox()
@@ -884,11 +893,26 @@ class SliderWidget(QtWidgets.QFrame):
         label.setText(str(int(value)))
 
     def add_slider(self, layout, label, token, idx, lval, lmin, lmax, lstp):
+        font = QtGui.QFont()
+        font.setPixelSize(self.plo.slider_label_size)
+
         label_name = QtWidgets.QLabel(label)
         label_name.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        label_name.setFont(font)
+        label_name.setStyleSheet(f'''
+            QLabel {{
+                color: {self.plo.slider_label_color};
+            }}
+        ''')
         
         label_value = QtWidgets.QLabel()
         label_value.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        label_value.setFont(font)
+        label_value.setStyleSheet(f'''
+            QLabel {{
+                color: {self.plo.slider_label_color};
+            }}
+        ''')
 
         slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Vertical, objectName=token)
         slider.setValue(999)
