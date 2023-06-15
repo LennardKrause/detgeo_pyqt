@@ -498,6 +498,32 @@ class MainWindow(QtWidgets.QMainWindow):
             'cbh' : 3,       # [mm]  Central beam hole
             'size' : {'4M':(2,4)},
             }
+
+        ##############################
+        # Specifications for RAYONIX #
+        ##############################
+        detectors['RAYONIX'] = {
+            'hms' : 75.0,   # [mm]  Module size (horizontal)
+            'vms' : 75.0,   # [mm]  Module size (vertical)
+            'pxs' : 39e-3,  # [mm]  Pixel size
+            'hgp' : 0,      # [pix] Gap between modules (horizontal)
+            'vgp' : 0,      # [pix] Gap between modules (vertical)
+            'cbh' : 0,      # [mm]  Central beam hole
+            'size' : {'MX225-HS':(3,3),'MX300-HS':(4,4)},
+            }
+        
+        #############################
+        # Specifications for PHOTON #
+        #############################
+        detectors['PHOTON-III'] = {
+            'hms' : 100.0,  # [mm]  Module size (horizontal)
+            'vms' : 70.0,   # [mm]  Module size (vertical)
+            'pxs' : 50e-3,  # [mm]  Pixel size
+            'hgp' : 0,      # [pix] Gap between modules (horizontal)
+            'vgp' : 0,      # [pix] Gap between modules (vertical)
+            'cbh' : 0,      # [mm]  Central beam hole
+            'size' : {'7':(1,1),'14':(1,2),'28':(2,2)},
+            }
         
         # make file dump
         file_dump = os.path.join(self.path, 'detectors.json')
