@@ -33,9 +33,9 @@ class MainWindow(QtWidgets.QMainWindow):
         
         file_dump = os.path.join(self.path, 'settings.json')
         # save parameters to file
-        # - save_default: overwrite existing file with defaults
+        # - reset_default: overwrite existing file with defaults
         # - force_write: overwrite existing file after load
-        self.init_par(file_dump, save_default=False, force_write=True)
+        self.init_par(file_dump, reset_default=False, force_write=True)
 
         # What standards should be available as reference
         # The d spacings will be imported from pyFAI
@@ -54,7 +54,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(centralwidget)
         
         # get the detector specs
-        self.detectors = self.get_det_library()
+        self.detectors = self.get_det_library(reset_default=False, force_write=True)
 
         # pick current detector
         self.det = self.get_specs_det(self.detectors, self.geo.det_type, self.geo.det_size)
@@ -439,7 +439,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         return det
 
-    def get_det_library(self):
+    def get_det_library(self, reset_default=False, force_write=True):
         ###########################
         # Detector Specifications #
         ###########################
@@ -525,14 +525,32 @@ class MainWindow(QtWidgets.QMainWindow):
             'size' : {'7':(1,1),'14':(1,2),'28':(2,2)},
             }
         
+        #############################
+        # Specifications for PHOTON #
+        #############################
+        detectors['PHOTON-II'] = {
+            'hms' : 100.0,  # [mm]  Module size (horizontal)
+            'vms' : 70.0,   # [mm]  Module size (vertical)
+            'pxs' : 50e-3,  # [mm]  Pixel size
+            'hgp' : 0,      # [pix] Gap between modules (horizontal)
+            'vgp' : 0,      # [pix] Gap between modules (vertical)
+            'cbh' : 0,      # [mm]  Central beam hole
+            'size' : {'7':(1,1),'14':(1,2)},
+            }
+        
         # make file dump
         file_dump = os.path.join(self.path, 'detectors.json')
-        if not os.path.exists(file_dump):
+        if not os.path.exists(file_dump) or reset_default:
             with open(file_dump, 'w') as wf:
                 json.dump(detectors, wf, indent=4)
         else:
             with open(file_dump, 'r') as of:
-                detectors = json.load(of)
+                for key, vals in json.load(of).items():
+                    detectors[key] = vals
+        
+        if force_write:
+            with open(file_dump, 'w') as wf:
+                json.dump(detectors, wf, indent=4)
         
         return detectors
 
@@ -807,7 +825,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if os.path.splitext(fpath)[1] == '.cif':
             self.get_cif_reference(fpath)
 
-    def init_par(self, file_dump, save_default, force_write):
+    def init_par(self, file_dump, reset_default=False, force_write=True):
         # fetch the geometry, detector, plot specifications and limits
         # load the defaults
         # geo: geometry and detector specs
@@ -818,7 +836,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lmt = self.get_specs_lmt()
         # file name to store current settings
         # if file_dump doesn't exists, make a dump
-        if not os.path.exists(file_dump) or save_default:
+        if not os.path.exists(file_dump) or reset_default:
             self.save_par(file_dump)
         # if it exists load parameters
         else:
@@ -838,11 +856,11 @@ class MainWindow(QtWidgets.QMainWindow):
             pars = json.load(of)
         conv = {'geo':self.geo, 'plo':self.plo, 'lmt':self.lmt}
         for key, vals in pars.items():
-                for p, x in vals.items():
-                    if p in conv[key].__dict__.keys():
-                        setattr(conv[key], p, x)
-                    else:
-                        print(f'WARNING: "{p}" is not a valid key!')
+            for p, x in vals.items():
+                if p in conv[key].__dict__.keys():
+                    setattr(conv[key], p, x)
+                else:
+                    print(f'WARNING: "{p}" is not a valid key!')
 
 class container(object):
     pass
