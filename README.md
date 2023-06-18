@@ -1,4 +1,4 @@
-# detgeo_pyqt6
+# detgeo
 #### A tool to project X-ray diffraction cones on a detector screen at different geometries (tilt, rotation, offset) and X-ray energies
  - Main application is to visualize the maximum achievable resolution at a given geometry.
  - Is able to project diffraction cones for standard samples or directly from cif files.
